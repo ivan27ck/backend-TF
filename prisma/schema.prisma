@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  profession    String?
+  location      String?
+  experience    String?
+  avatar        String?
+  rating        Float    @default(0)
+  reviewsCount  Int      @default(0)
+  completedJobs Int      @default(0)
+  verified      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  services         Service[]
+  sentMessages     Message[] @relation("Sender")
+  receivedMessages Message[] @relation("Receiver")
+
+  // 👇 OJO: dos lados "opuestos" con nombres de relación distintos
+  reviewsGiven    Review[] @relation("ReviewsGiven") // yo escribí una reseña
+  reviewsReceived Review[] @relation("ReviewsReceived") // me escribieron una reseña
+
+  favorites Favorite[]
+  
+  // 🛡️ Sistema de Seguridad
+  clientAgreements   ServiceAgreement[] @relation("ClientAgreements")
+  providerAgreements ServiceAgreement[] @relation("ProviderAgreements")
+  disputesReported   Dispute[]
+}
+
+model Review {
+  id             String   @id @default(cuid())
+  reviewerId     String
+  reviewedUserId String
+  serviceId      String?
+  rating         Int
+  comment        String?
+  createdAt      DateTime @default(now())
+
+  // 👇 Deben coincidir los nombres con los de User
+  reviewer     User     @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewedUser User     @relation("ReviewsReceived", fields: [reviewedUserId], references: [id])
+  service      Service? @relation(fields: [serviceId], references: [id])
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  senderId   String
+  receiverId String
+  serviceId  String?
+  content    String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  sender   User     @relation("Sender", fields: [senderId], references: [id])
+  receiver User     @relation("Receiver", fields: [receiverId], references: [id])
+  service  Service? @relation(fields: [serviceId], references: [id])
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  category    String
+  price       String?
+  location    String?
+  lat         Float?   // Latitud para geolocalización
+  lng         Float?   // Longitud para geolocalización
+  images      Json?
+  mainImage   String?  // Imagen principal/portada
+  verified    Boolean  @default(false)
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  reviews   Review[]
+  favorites Favorite[]
+  
+  // 🛡️ Sistema de Seguridad
+  agreements ServiceAgreement[]
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  icon        String?
+  color       String?
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  serviceId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@unique([userId, serviceId])
+}
+
+// 🛡️ SISTEMA DE SEGURIDAD Y GARANTÍAS
+model ServiceAgreement {
+  id                String   @id @default(cuid())
+  serviceId         String?  // Opcional para acuerdos directos
+  clientId          String
+  providerId        String
+  
+  // Términos del acuerdo
+  agreedPrice       Float    // Precio acordado
+  advancePayment    Float?   // Adelanto requerido (opcional)
+  advancePercentage Float?   // Porcentaje de adelanto (0-50%)
+  description       String   // Descripción específica del trabajo
+  estimatedDuration String?  // Duración estimada
+  location          String?  // Ubicación específica
+  
+  // Estados del acuerdo
+  status            String   @default("pending") // pending, accepted, started, completed, cancelled, disputed
+  clientAccepted    Boolean  @default(false)
+  providerAccepted  Boolean  @default(false)
+  
+  // Pagos
+  advancePaid       Boolean  @default(false)
+  advancePaidAt     DateTime?
+  finalPaymentPaid Boolean  @default(false)
+  finalPaymentPaidAt DateTime?
+  
+  // Confirmaciones
+  workStartedAt     DateTime?
+  workCompletedAt   DateTime?
+  clientConfirmedStart    Boolean @default(false)
+  providerConfirmedStart  Boolean @default(false)
+  clientConfirmedComplete Boolean @default(false)
+  providerConfirmedComplete Boolean @default(false)
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  expiresAt         DateTime? // Fecha de expiración del acuerdo
+  
+  // Relaciones
+  service           Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  client            User     @relation("ClientAgreements", fields: [clientId], references: [id])
+  provider          User     @relation("ProviderAgreements", fields: [providerId], references: [id])
+  
+  // Disputas
+  disputes          Dispute[]
+  
+  // Pagos
+  payments          Payment[]
+  
+  @@unique([serviceId, clientId, providerId]) // Un acuerdo por servicio-cliente-proveedor
+}
+
+model Dispute {
+  id                String   @id @default(cuid())
+  agreementId       String
+  reportedBy        String   // ID del usuario que reporta
+  reason            String   // Razón de la disputa
+  description       String   // Descripción detallada
+  status            String   @default("open") // open, in_review, resolved, closed
+  resolution        String?  // Resolución final
+  resolvedAt        DateTime?
+  createdAt         DateTime @default(now())
+  
+  // Relaciones
+  agreement         ServiceAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  reporter          User             @relation(fields: [reportedBy], references: [id])
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  agreementId       String
+  amount            Float
+  type              String   // "advance" o "final"
+  status            String   @default("pending") // pending, completed, failed, refunded
+  paymentMethod     String?  // "card", "transfer", "cash"
+  transactionId     String?  // ID de la transacción externa
+  processedAt       DateTime?
+  createdAt         DateTime @default(now())
+  
+  // Relaciones
+  agreement         ServiceAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+}
