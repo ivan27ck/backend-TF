@@ -1,5 +1,5 @@
 import express from 'express';
-import cors from 'cors';
+import cors, { CorsOptions } from 'cors';
 import http from 'http'; // Import http
 import { Server } from 'socket.io'; // Import Server from socket.io
 import dotenv from 'dotenv'; // Import dotenv
@@ -37,21 +37,25 @@ const io = new Server(httpServer, {
 }); // Initialize Socket.io
 
 // CORS: usa el ORIGIN de tu .env (o permite todo en local)
-app.use(
-  cors({
-    origin: (
-      origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void
-    ) => {
-      const wildcardEnabled = allowedOrigins.includes('*');
-      const sanitizedOrigin = origin ? normalizeOrigin(origin) : undefined;
-      if (!sanitizedOrigin || wildcardEnabled || allowedOrigins.includes(sanitizedOrigin)) {
-        return callback(null, true);
-      }
-      return callback(new Error('Origen no permitido por CORS'), false);
+const corsOptions: CorsOptions = {
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean | string) => void
+  ) => {
+    const wildcardEnabled = allowedOrigins.includes('*');
+    const sanitizedOrigin = origin ? normalizeOrigin(origin) : undefined;
+    if (!sanitizedOrigin || wildcardEnabled || allowedOrigins.includes(sanitizedOrigin)) {
+      return callback(null, sanitizedOrigin ?? true);
     }
-  })
-);
+    return callback(new Error('Origen no permitido por CORS'), false);
+  },
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 app.get('/', (_req, res) => res.send('API TrabajoFácil OK'));
