@@ -17,17 +17,41 @@ import uploadRoutes from './routes/uploadRoutes';
 import { prisma } from './utils/prisma';
 import { setupSocketIO } from './socket'; // Import the new socket setup
 
+const DEFAULT_ALLOWED_ORIGINS = ['https://trabajofacil.vercel.app'];
+const normalizeOrigin = (value: string) => value.replace(/\/$/, '');
+const configuredOrigins = process.env.FRONTEND_ORIGIN
+  ?.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+  .map(normalizeOrigin);
+const rawAllowedOrigins = configuredOrigins?.length ? configuredOrigins : DEFAULT_ALLOWED_ORIGINS;
+const allowedOrigins = rawAllowedOrigins.map(normalizeOrigin);
+
 const app = express();
 const httpServer = http.createServer(app); // Create HTTP server
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_ORIGIN?.split(',') || '*', // Allow all for local development
+    origin: allowedOrigins.length ? allowedOrigins : '*',
     methods: ['GET', 'POST']
   }
 }); // Initialize Socket.io
 
 // CORS: usa el ORIGIN de tu .env (o permite todo en local)
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN?.split(',') || true }));
+app.use(
+  cors({
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void
+    ) => {
+      const wildcardEnabled = allowedOrigins.includes('*');
+      const sanitizedOrigin = origin ? normalizeOrigin(origin) : undefined;
+      if (!sanitizedOrigin || wildcardEnabled || allowedOrigins.includes(sanitizedOrigin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Origen no permitido por CORS'), false);
+    }
+  })
+);
 app.use(express.json());
 
 app.get('/', (_req, res) => res.send('API TrabajoFácil OK'));
