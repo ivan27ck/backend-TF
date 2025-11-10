@@ -1,5 +1,5 @@
 import express from 'express';
-import cors, { CorsOptions } from 'cors';
+import cors from 'cors';
 import http from 'http'; // Import http
 import { Server } from 'socket.io'; // Import Server from socket.io
 import dotenv from 'dotenv'; // Import dotenv
@@ -17,45 +17,17 @@ import uploadRoutes from './routes/uploadRoutes';
 import { prisma } from './utils/prisma';
 import { setupSocketIO } from './socket'; // Import the new socket setup
 
-const DEFAULT_ALLOWED_ORIGINS = ['https://trabajofacil.vercel.app'];
-const normalizeOrigin = (value: string) => value.replace(/\/$/, '');
-const parsedConfiguredOrigins = process.env.FRONTEND_ORIGIN
-  ?.split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-const allowedOrigins = (parsedConfiguredOrigins?.length ? parsedConfiguredOrigins : DEFAULT_ALLOWED_ORIGINS).map(
-  normalizeOrigin
-);
-
 const app = express();
 const httpServer = http.createServer(app); // Create HTTP server
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins.length ? allowedOrigins : '*',
+    origin: process.env.FRONTEND_ORIGIN?.split(',') || '*', // Allow all for local development
     methods: ['GET', 'POST']
   }
 }); // Initialize Socket.io
 
 // CORS: usa el ORIGIN de tu .env (o permite todo en local)
-const corsOptions: CorsOptions = {
-  origin: (
-    origin: string | undefined,
-    callback: (err: Error | null, allow?: boolean | string) => void
-  ) => {
-    const wildcardEnabled = allowedOrigins.includes('*');
-    const sanitizedOrigin = origin ? normalizeOrigin(origin) : undefined;
-    if (!sanitizedOrigin || wildcardEnabled || allowedOrigins.includes(sanitizedOrigin)) {
-      return callback(null, sanitizedOrigin ?? true);
-    }
-    return callback(new Error('Origen no permitido por CORS'), false);
-  },
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN?.split(',') || true }));
 app.use(express.json());
 
 app.get('/', (_req, res) => res.send('API TrabajoFácil OK'));
