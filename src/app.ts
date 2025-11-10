@@ -19,13 +19,13 @@ import { setupSocketIO } from './socket'; // Import the new socket setup
 
 const DEFAULT_ALLOWED_ORIGINS = ['https://trabajofacil.vercel.app'];
 const normalizeOrigin = (value: string) => value.replace(/\/$/, '');
-const configuredOrigins = process.env.FRONTEND_ORIGIN
+const parsedConfiguredOrigins = process.env.FRONTEND_ORIGIN
   ?.split(',')
   .map((origin) => origin.trim())
-  .filter(Boolean)
-  .map(normalizeOrigin);
-const rawAllowedOrigins = configuredOrigins?.length ? configuredOrigins : DEFAULT_ALLOWED_ORIGINS;
-const allowedOrigins = rawAllowedOrigins.map(normalizeOrigin);
+  .filter(Boolean);
+const allowedOrigins = (parsedConfiguredOrigins?.length ? parsedConfiguredOrigins : DEFAULT_ALLOWED_ORIGINS).map(
+  normalizeOrigin
+);
 
 const app = express();
 const httpServer = http.createServer(app); // Create HTTP server
