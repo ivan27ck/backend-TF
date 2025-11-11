@@ -3,6 +3,7 @@ import { prisma } from '../utils/prisma';
 import { verifyToken } from '../utils/jwt';
 import { haversineDistanceKm, projectToMeters } from '../utils/geo';
 import { kmeans, type KPoint } from '../utils/kmeans';
+import { getCoordinatesFromLocation } from '../utils/geocoding';
 
 export async function getServices(req: Request, res: Response) {
   try {
@@ -125,10 +126,30 @@ export async function createService(req: Request, res: Response) {
     }
 
     const decoded = verifyToken(token) as { id: string };
-    const { title, description, category, price, location, images, mainImage } = req.body;
+    const { title, description, category, price, location, images, mainImage, lat, lng } = req.body;
 
     if (!title || !category) {
       return res.status(400).json({ message: 'Título y categoría son requeridos' });
+    }
+
+    let latValue: number | null = null;
+    let lngValue: number | null = null;
+
+    if (lat !== undefined && lng !== undefined && lat !== null && lng !== null) {
+      const parsedLat = Number(lat);
+      const parsedLng = Number(lng);
+      if (!Number.isNaN(parsedLat) && !Number.isNaN(parsedLng)) {
+        latValue = parsedLat;
+        lngValue = parsedLng;
+      }
+    }
+
+    if (latValue === null || lngValue === null) {
+      const coordinates = getCoordinatesFromLocation(location);
+      if (coordinates) {
+        latValue = coordinates.lat;
+        lngValue = coordinates.lng;
+      }
     }
 
     const service = await prisma.service.create({
@@ -140,7 +161,9 @@ export async function createService(req: Request, res: Response) {
         price,
         location,
         images: images || [],
-        mainImage: mainImage || null
+        mainImage: mainImage || null,
+        lat: latValue,
+        lng: lngValue
       },
       include: {
         user: {
@@ -176,7 +199,7 @@ export async function updateService(req: Request, res: Response) {
 
     const decoded = verifyToken(token) as { id: string };
     const { id } = req.params;
-    const { title, description, category, price, location, images, mainImage } = req.body;
+    const { title, description, category, price, location, images, mainImage, lat, lng } = req.body;
 
     const existingService = await prisma.service.findUnique({
       where: { id }
@@ -190,6 +213,27 @@ export async function updateService(req: Request, res: Response) {
       return res.status(403).json({ message: 'No autorizado' });
     }
 
+    let latValue: number | null | undefined = lat;
+    let lngValue: number | null | undefined = lng;
+
+    if (latValue !== undefined && latValue !== null) {
+      const parsedLat = Number(latValue);
+      latValue = Number.isNaN(parsedLat) ? null : parsedLat;
+    }
+
+    if (lngValue !== undefined && lngValue !== null) {
+      const parsedLng = Number(lngValue);
+      lngValue = Number.isNaN(parsedLng) ? null : parsedLng;
+    }
+
+    if ((latValue === undefined || latValue === null) && (lngValue === undefined || lngValue === null)) {
+      const coordinates = getCoordinatesFromLocation(location ?? existingService.location ?? null);
+      if (coordinates) {
+        latValue = coordinates.lat;
+        lngValue = coordinates.lng;
+      }
+    }
+
     const updatedService = await prisma.service.update({
       where: { id },
       data: {
@@ -199,7 +243,9 @@ export async function updateService(req: Request, res: Response) {
         price,
         location,
         images,
-        mainImage: mainImage || null
+        mainImage: mainImage || null,
+        lat: latValue ?? existingService.lat,
+        lng: lngValue ?? existingService.lng
       },
       include: {
         user: {

@@ -13,7 +13,8 @@
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fix:image-urls": "ts-node scripts/fixImageUrls.ts"
   },
   "keywords": [],
   "author": "",
