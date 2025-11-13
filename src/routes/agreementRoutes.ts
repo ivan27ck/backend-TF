@@ -6,7 +6,8 @@ import {
   confirmWorkComplete,
   getUserAgreements,
   getAgreementDetails,
-  createDispute
+  createDispute,
+  cancelAgreement
 } from '../controllers/agreementController';
 
 const router = express.Router();
@@ -33,6 +34,9 @@ router.get('/:agreementId', getAgreementDetails);
 
 // Crear disputa
 router.post('/:agreementId/dispute', createDispute);
+
+// Cancelar acuerdo
+router.post('/:agreementId/cancel', cancelAgreement);
 
 export default router;
 

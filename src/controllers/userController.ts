@@ -44,7 +44,6 @@ export async function getProfile(req: Request, res: Response) {
 
     res.json({ success: true, user });
   } catch (error) {
-    console.error('Error getting profile:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
@@ -85,7 +84,6 @@ export async function updateProfile(req: Request, res: Response) {
 
     res.json({ success: true, user: updatedUser });
   } catch (error) {
-    console.error('Error updating profile:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
@@ -130,7 +128,6 @@ export async function getUserById(req: Request, res: Response) {
 
     res.json({ success: true, user });
   } catch (error) {
-    console.error('Error getting user:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
@@ -170,7 +167,6 @@ export async function updateAvatar(req: Request, res: Response) {
 
     res.json({ success: true, user });
   } catch (error) {
-    console.error('Error updating avatar:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }

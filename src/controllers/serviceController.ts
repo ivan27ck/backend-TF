@@ -7,7 +7,7 @@ import { getCoordinatesFromLocation } from '../utils/geocoding';
 
 export async function getServices(req: Request, res: Response) {
   try {
-    const { category, location, search, page = 1, limit = 100 } = req.query;
+    const { category, location, search, page = 1, limit = 100, userLat, userLng } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
     const where: any = { status: 'active' };
@@ -55,9 +55,41 @@ export async function getServices(req: Request, res: Response) {
       prisma.service.count({ where })
     ]);
 
+    // Si el usuario envió sus coordenadas, calcular distancia usando las coordenadas guardadas en la BD
+    let servicesWithDistance = services;
+    if (userLat && userLng) {
+      const userLatNum = parseFloat(userLat as string);
+      const userLngNum = parseFloat(userLng as string);
+
+      if (!Number.isNaN(userLatNum) && !Number.isNaN(userLngNum)) {
+        servicesWithDistance = services.map(service => {
+          // Usar las coordenadas que ya están guardadas en la base de datos
+          if (service.lat !== null && service.lng !== null) {
+            const distance = haversineDistanceKm(
+              { lat: userLatNum, lng: userLngNum },
+              { lat: service.lat, lng: service.lng }
+            );
+            return {
+              ...service,
+              distance
+            };
+          }
+          // Si el servicio no tiene coordenadas, no agregar distancia
+          return service;
+        });
+
+        // Ordenar por distancia (servicios sin coordenadas al final)
+        servicesWithDistance.sort((a, b) => {
+          const aDist = 'distance' in a ? (a as any).distance : Infinity;
+          const bDist = 'distance' in b ? (b as any).distance : Infinity;
+          return aDist - bDist;
+        });
+      }
+    }
+
     res.json({
       success: true,
-      services,
+      services: servicesWithDistance,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -145,7 +177,7 @@ export async function createService(req: Request, res: Response) {
     }
 
     if (latValue === null || lngValue === null) {
-      const coordinates = getCoordinatesFromLocation(location);
+      const coordinates = await getCoordinatesFromLocation(location);
       if (coordinates) {
         latValue = coordinates.lat;
         lngValue = coordinates.lng;
@@ -185,7 +217,6 @@ export async function createService(req: Request, res: Response) {
 
     res.status(201).json({ success: true, service });
   } catch (error) {
-    console.error('Error creating service:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
@@ -227,7 +258,7 @@ export async function updateService(req: Request, res: Response) {
     }
 
     if ((latValue === undefined || latValue === null) && (lngValue === undefined || lngValue === null)) {
-      const coordinates = getCoordinatesFromLocation(location ?? existingService.location ?? null);
+      const coordinates = await getCoordinatesFromLocation(location ?? existingService.location ?? null);
       if (coordinates) {
         latValue = coordinates.lat;
         lngValue = coordinates.lng;
@@ -313,6 +344,9 @@ export async function getNearbyServicesKMeans(req: Request, res: Response) {
   try {
     const { userLat, userLng, k, limit = '20', page = '1', radiusKm, category, q } = req.query;
 
+    console.log('🔍 Búsqueda por cercanía iniciada:');
+    console.log(`   Parámetros: userLat=${userLat}, userLng=${userLng}, radiusKm=${radiusKm}, category=${category}, q=${q}`);
+
     // Validar parámetros obligatorios
     if (!userLat || !userLng) {
       return res.status(400).json({
@@ -370,19 +404,22 @@ export async function getNearbyServicesKMeans(req: Request, res: Response) {
       }
     });
 
-    // Filtrar por radio si se especifica
-    let filteredServices = services;
-    if (radiusKm) {
-      const radiusNum = parseFloat(radiusKm as string);
-      filteredServices = services.filter(service => {
-        if (!service.lat || !service.lng) return false;
-        const distance = haversineDistanceKm(
-          { lat: userLatNum, lng: userLngNum },
-          { lat: service.lat, lng: service.lng }
-        );
-        return distance <= radiusNum;
-      });
-    }
+    // Filtrar por radio (por defecto 15 km si no se especifica)
+    const DEFAULT_RADIUS_KM = 15;
+    const radiusNum = radiusKm ? parseFloat(radiusKm as string) : DEFAULT_RADIUS_KM;
+    
+    console.log(`🔍 Filtrando servicios dentro de ${radiusNum} km del usuario`);
+    
+    let filteredServices = services.filter(service => {
+      if (!service.lat || !service.lng) return false;
+      const distance = haversineDistanceKm(
+        { lat: userLatNum, lng: userLngNum },
+        { lat: service.lat, lng: service.lng }
+      );
+      return distance <= radiusNum;
+    });
+    
+    console.log(`   Servicios dentro del radio: ${filteredServices.length} de ${services.length}`);
 
     const n = filteredServices.length;
 
@@ -401,6 +438,11 @@ export async function getNearbyServicesKMeans(req: Request, res: Response) {
 
     // Si hay muy pocos servicios, no usar K-Means
     if (n < 2) {
+      console.log('🔍 Búsqueda cercana (sin K-Means - muy pocos servicios):');
+      console.log('   Total servicios:', n);
+      console.log('   Radio máximo:', radiusNum, 'km');
+      console.log('   Ubicación del usuario: lat=', userLatNum, 'lng=', userLngNum);
+
       const servicesWithDistance = filteredServices.map(service => ({
         ...service,
         distance: haversineDistanceKm(
@@ -410,6 +452,11 @@ export async function getNearbyServicesKMeans(req: Request, res: Response) {
       }));
 
       servicesWithDistance.sort((a, b) => a.distance - b.distance);
+
+      console.log('   📍 Distancias de servicios:');
+      servicesWithDistance.forEach((service, index) => {
+        console.log(`      ${index + 1}. "${service.title}" - ${service.distance.toFixed(2)} km (lat=${service.lat}, lng=${service.lng})`);
+      });
       
       const skip = (pageNum - 1) * limitNum;
       const paginatedServices = servicesWithDistance.slice(skip, skip + limitNum);
@@ -472,21 +519,30 @@ export async function getNearbyServicesKMeans(req: Request, res: Response) {
     
     console.log('🔍 K-Means Debug:');
     console.log('   Total servicios consultados:', n);
+    console.log('   Radio máximo:', radiusNum, 'km');
     console.log('   Número de clusters (k):', kNum);
     console.log('   Cluster más cercano:', closestCentroidIdx);
     console.log('   Servicios en cluster cercano:', clusterServices.length);
     console.log('   Límite de paginación:', limitNum);
+    console.log('   Ubicación del usuario: lat=', userLatNum, 'lng=', userLngNum);
 
-    // Calcular distancia real para cada servicio y ordenar
-    const servicesWithDistance = clusterServices.map(service => ({
-      ...service,
-      distance: haversineDistanceKm(
-        { lat: userLatNum, lng: userLngNum },
-        { lat: service.lat!, lng: service.lng! }
-      )
-    }));
+    // Calcular distancia real para cada servicio, filtrar por radio y ordenar
+    const servicesWithDistance = clusterServices
+      .map(service => ({
+        ...service,
+        distance: haversineDistanceKm(
+          { lat: userLatNum, lng: userLngNum },
+          { lat: service.lat!, lng: service.lng! }
+        )
+      }))
+      .filter(service => service.distance <= radiusNum); // Filtro adicional por seguridad
 
     servicesWithDistance.sort((a, b) => a.distance - b.distance);
+
+    console.log('   📍 Distancias de servicios:');
+    servicesWithDistance.forEach((service, index) => {
+      console.log(`      ${index + 1}. "${service.title}" - ${service.distance.toFixed(2)} km (lat=${service.lat}, lng=${service.lng})`);
+    });
 
     // Paginación
     const skip = (pageNum - 1) * limitNum;

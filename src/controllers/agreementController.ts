@@ -124,9 +124,8 @@ export async function createServiceAgreement(req: AuthenticatedRequest, res: Res
         agreement.agreedPrice,
         agreement.advancePayment || undefined
       );
-      console.log('📧 Notificación de acuerdo creado enviada');
     } catch (error) {
-      console.error('❌ Error enviando notificación de acuerdo:', error);
+      // Silently handle email errors
     }
 
     res.status(201).json({ 
@@ -136,7 +135,6 @@ export async function createServiceAgreement(req: AuthenticatedRequest, res: Res
     });
 
   } catch (error) {
-    console.error('Error creating service agreement:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
@@ -207,9 +205,8 @@ export async function acceptAgreement(req: AuthenticatedRequest, res: Response) 
         updatedAgreement.client.name,
         updatedAgreement.service?.title || 'Servicio Directo'
       );
-      console.log('📧 Notificación de acuerdo aceptado enviada');
     } catch (error) {
-      console.error('❌ Error enviando notificación de acuerdo aceptado:', error);
+      // Silently handle email errors
     }
 
     res.json({ 
@@ -219,7 +216,6 @@ export async function acceptAgreement(req: AuthenticatedRequest, res: Response) 
     });
 
   } catch (error) {
-    console.error('Error accepting agreement:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
@@ -304,15 +300,13 @@ export async function confirmWorkStart(req: AuthenticatedRequest, res: Response)
     // Verificar si el estado debe cambiar a 'started' después de la actualización
     if (updatedAgreement.clientConfirmedStart && updatedAgreement.providerConfirmedStart && updatedAgreement.status === 'accepted') {
       // Actualizar el estado a 'started' si ambos ya confirmaron
-      const finalUpdate = await prisma.serviceAgreement.update({
+      await prisma.serviceAgreement.update({
         where: { id: agreementId },
         data: {
           status: 'started',
           workStartedAt: new Date()
         }
       });
-      
-      console.log('🔄 Estado actualizado a "started" automáticamente');
     }
 
     res.json({ 
@@ -324,7 +318,6 @@ export async function confirmWorkStart(req: AuthenticatedRequest, res: Response)
     });
 
   } catch (error) {
-    console.error('Error confirming work start:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
@@ -420,9 +413,8 @@ export async function confirmWorkComplete(req: AuthenticatedRequest, res: Respon
           updatedAgreement.service?.title || 'Servicio Directo',
           updatedAgreement.agreedPrice
         );
-        console.log('📧 Notificación de trabajo completado enviada');
       } catch (error) {
-        console.error('❌ Error enviando notificación de trabajo completado:', error);
+        // Silently handle email errors
       }
     }
 
@@ -433,7 +425,6 @@ export async function confirmWorkComplete(req: AuthenticatedRequest, res: Respon
     });
 
   } catch (error) {
-    console.error('Error confirming work complete:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
@@ -485,8 +476,6 @@ export async function createDispute(req: AuthenticatedRequest, res: Response) {
       data: { status: 'disputed' }
     });
 
-    console.log('🚨 Disputa creada:', dispute.id);
-
     res.json({ 
       success: true, 
       dispute,
@@ -494,7 +483,6 @@ export async function createDispute(req: AuthenticatedRequest, res: Response) {
     });
 
   } catch (error) {
-    console.error('Error creating dispute:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
@@ -555,7 +543,6 @@ export async function getUserAgreements(req: AuthenticatedRequest, res: Response
     res.json({ success: true, agreements });
 
   } catch (error) {
-    console.error('Error getting user agreements:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
@@ -625,9 +612,116 @@ export async function getAgreementDetails(req: AuthenticatedRequest, res: Respon
     res.json({ success: true, agreement });
 
   } catch (error) {
-    console.error('Error getting agreement details:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 }
 
+// 🚫 CANCELAR ACUERDO (Cualquier estado excepto completed y cancelled)
+export async function cancelAgreement(req: AuthenticatedRequest, res: Response) {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'Token requerido' });
+    }
 
+    const decoded = verifyToken(token) as { id: string };
+    const userId = decoded.id;
+    const { agreementId } = req.params;
+
+    const agreement = await prisma.serviceAgreement.findFirst({
+      where: {
+        id: agreementId,
+        OR: [
+          { clientId: userId },
+          { providerId: userId }
+        ]
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        },
+        provider: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    if (!agreement) {
+      return res.status(404).json({ message: 'Acuerdo no encontrado' });
+    }
+
+    // Verificar que no esté completado o ya cancelado
+    if (agreement.status === 'completed') {
+      return res.status(400).json({ message: 'No se puede cancelar un acuerdo completado' });
+    }
+
+    if (agreement.status === 'cancelled') {
+      return res.status(400).json({ message: 'El acuerdo ya está cancelado' });
+    }
+
+    // Actualizar el acuerdo a cancelado
+    const updatedAgreement = await prisma.serviceAgreement.update({
+      where: { id: agreementId },
+      data: {
+        status: 'cancelled'
+      },
+      include: {
+        service: {
+          select: {
+            id: true,
+            title: true,
+            category: true
+          }
+        },
+        client: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            email: true
+          }
+        },
+        provider: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    // 📧 Enviar notificación de cancelación
+    try {
+      const cancellerName = agreement.clientId === userId ? agreement.client.name : agreement.provider.name;
+      const otherUser = agreement.clientId === userId ? agreement.provider : agreement.client;
+      
+      await emailNotifications.agreementCancelled(
+        otherUser.email,
+        otherUser.name,
+        cancellerName,
+        updatedAgreement.service?.title || 'Servicio Directo'
+      );
+    } catch (error) {
+      // Silently handle email errors
+    }
+
+    res.json({ 
+      success: true, 
+      agreement: updatedAgreement,
+      message: 'Acuerdo cancelado exitosamente' 
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+}

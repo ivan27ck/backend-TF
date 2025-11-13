@@ -222,6 +222,46 @@ const emailTemplates = {
         </div>
       </div>
     `
+  }),
+
+  // Notificación de acuerdo cancelado
+  agreementCancelled: (data: {
+    recipientName: string;
+    cancellerName: string;
+    serviceTitle: string;
+    agreementUrl: string;
+  }) => ({
+    subject: `🚫 Acuerdo cancelado - ${data.serviceTitle}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa;">
+        <div style="background: linear-gradient(135deg, #64748b, #475569); padding: 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">🚫 Acuerdo Cancelado</h1>
+          <p style="color: #cbd5e1; margin: 5px 0 0 0;">Notificación de cancelación</p>
+        </div>
+
+        <div style="background: white; padding: 30px;">
+          <h2 style="color: #1e293b; margin: 0 0 20px 0;">Acuerdo Cancelado</h2>
+
+          <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0; color: #374151;"><strong>Servicio:</strong> ${data.serviceTitle}</p>
+            <p style="margin: 0 0 10px 0; color: #374151;"><strong>Cancelado por:</strong> ${data.cancellerName}</p>
+            <p style="margin: 0; color: #374151;"><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-MX')}</p>
+          </div>
+
+          <div style="background: #fef3c7; border: 1px solid #fbbf24; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #92400e; font-weight: bold;">ℹ️ Información</p>
+            <p style="margin: 5px 0 0 0; color: #92400e;">El acuerdo ha sido cancelado. Si tenías un adelanto, será reembolsado según los términos del acuerdo.</p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.agreementUrl}"
+               style="background: #64748b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+              📋 Ver Detalles
+            </a>
+          </div>
+        </div>
+      </div>
+    `
   })
 };
 
@@ -328,6 +368,17 @@ export const emailNotifications = {
       serviceTitle,
       reason,
       disputeUrl
+    });
+  },
+
+  // Acuerdo cancelado
+  agreementCancelled: async (recipientEmail: string, recipientName: string, cancellerName: string, serviceTitle: string) => {
+    const agreementUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/agreements`;
+    return sendEmail(recipientEmail, 'agreementCancelled', {
+      recipientName,
+      cancellerName,
+      serviceTitle,
+      agreementUrl
     });
   }
 };
