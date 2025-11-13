@@ -627,6 +627,17 @@ async function main() {
   // Crear categorías
   const categories = await Promise.all([
     prisma.category.upsert({
+      where: { name: 'Otras' },
+      update: {},
+      create: {
+        name: 'Otras',
+        icon: '📦',
+        color: 'bg-gray-500',
+        description: 'Otras categorías de servicios',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
       where: { name: 'Plomería' },
       update: {},
       create: {
@@ -821,6 +832,160 @@ async function main() {
         icon: '🧘‍♀️',
         color: 'bg-lime-600',
         description: 'Servicios de bienestar y salud',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Albañilería' },
+      update: {},
+      create: {
+        name: 'Albañilería',
+        icon: '🧱',
+        color: 'bg-stone-600',
+        description: 'Servicios de construcción y albañilería',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Herrería' },
+      update: {},
+      create: {
+        name: 'Herrería',
+        icon: '⚒️',
+        color: 'bg-gray-700',
+        description: 'Servicios de herrería y metalurgia',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Vidriería' },
+      update: {},
+      create: {
+        name: 'Vidriería',
+        icon: '🪟',
+        color: 'bg-sky-600',
+        description: 'Servicios de vidriería y cristalería',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Limpieza de Alfombras' },
+      update: {},
+      create: {
+        name: 'Limpieza de Alfombras',
+        icon: '🧽',
+        color: 'bg-cyan-600',
+        description: 'Servicios de limpieza profunda de alfombras',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Instalación de Aire Acondicionado' },
+      update: {},
+      create: {
+        name: 'Instalación de Aire Acondicionado',
+        icon: '❄️',
+        color: 'bg-blue-500',
+        description: 'Instalación y mantenimiento de sistemas de aire acondicionado',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Cerrajería' },
+      update: {},
+      create: {
+        name: 'Cerrajería',
+        icon: '🔐',
+        color: 'bg-slate-700',
+        description: 'Servicios de cerrajería y seguridad',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Diseño Gráfico' },
+      update: {},
+      create: {
+        name: 'Diseño Gráfico',
+        icon: '🎨',
+        color: 'bg-violet-600',
+        description: 'Servicios de diseño gráfico y visual',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Marketing Digital' },
+      update: {},
+      create: {
+        name: 'Marketing Digital',
+        icon: '📊',
+        color: 'bg-purple-600',
+        description: 'Servicios de marketing digital y publicidad online',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Contabilidad' },
+      update: {},
+      create: {
+        name: 'Contabilidad',
+        icon: '📈',
+        color: 'bg-green-700',
+        description: 'Servicios contables y financieros',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Legal' },
+      update: {},
+      create: {
+        name: 'Legal',
+        icon: '⚖️',
+        color: 'bg-indigo-700',
+        description: 'Servicios legales y asesoría jurídica',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Fitness' },
+      update: {},
+      create: {
+        name: 'Fitness',
+        icon: '💪',
+        color: 'bg-red-700',
+        description: 'Servicios de entrenamiento físico y fitness',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Mascotas' },
+      update: {},
+      create: {
+        name: 'Mascotas',
+        icon: '🐾',
+        color: 'bg-amber-500',
+        description: 'Servicios para mascotas y cuidado animal',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Reparación de Electrodomésticos' },
+      update: {},
+      create: {
+        name: 'Reparación de Electrodomésticos',
+        icon: '🔌',
+        color: 'bg-orange-600',
+        description: 'Reparación y mantenimiento de electrodomésticos',
+        active: true
+      }
+    }),
+    prisma.category.upsert({
+      where: { name: 'Tapicería' },
+      update: {},
+      create: {
+        name: 'Tapicería',
+        icon: '🪑',
+        color: 'bg-amber-700',
+        description: 'Servicios de tapicería y restauración de muebles',
         active: true
       }
     })

@@ -14,7 +14,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "typecheck": "tsc --noEmit",
-    "fix:image-urls": "ts-node scripts/fixImageUrls.ts"
+    "fix:image-urls": "ts-node scripts/fixImageUrls.ts",
+    "add:categories": "ts-node scripts/addCategories.ts"
   },
   "keywords": [],
   "author": "",
@@ -28,6 +29,7 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "cloudinary": "^2.0.0",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.6",
     "prisma": "^6.14.0",
